@@ -1,0 +1,1220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Undertow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&family=Spectral+SC:wght@300;400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --abyss:#02060b; --ink:#dce8ea; --dim:#8ea3aa; --faint:#5a7079;
+  --c:#8fe6dc; --line:rgba(143,230,220,.32);
+  --serif:'Spectral','Iowan Old Style',Georgia,serif;
+  --sc:'Spectral SC','Spectral',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--abyss);color:var(--ink);font-family:var(--serif);font-weight:300;font-size:19px;line-height:1.6;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+#sea{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+#veil{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at 50% 52%,transparent 35%,rgba(0,0,0,.82) 100%)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible{outline:1px solid var(--c);outline-offset:4px}
+
+#hud{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;font-family:var(--sc);font-size:14px;letter-spacing:.18em;color:var(--dim);pointer-events:none;transition:opacity 1.2s}
+#hud > *{pointer-events:auto}
+#hud .r{display:flex;gap:18px;align-items:center}
+#depth{font-family:var(--mono);letter-spacing:.06em;font-size:13px;color:var(--c);opacity:.85}
+.hbtn{font-family:var(--sc);font-size:13px;letter-spacing:.16em;color:var(--dim);opacity:.8}
+.hbtn:hover{color:var(--ink);opacity:1}
+
+.screen{position:fixed;inset:0;z-index:10;display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;padding:76px 16px 56px;opacity:0;pointer-events:none;transition:opacity 1.1s ease}
+.screen.on{opacity:1;pointer-events:auto}
+.card{max-width:620px;width:100%;margin:auto 0}
+.center{text-align:center}
+
+h1{font-family:var(--sc);font-weight:300;font-size:clamp(44px,11vw,84px);letter-spacing:.32em;margin:0 0 6px;padding-left:.32em;color:var(--ink);text-shadow:0 0 40px rgba(143,230,220,.25)}
+.sub{font-style:italic;color:var(--dim);font-size:20px;margin:0 0 42px}
+.note{font-size:15px;color:var(--faint);font-style:italic;margin-top:36px}
+.btn{display:inline-block;font-family:var(--sc);letter-spacing:.2em;font-size:16px;padding:12px 28px;border:1px solid var(--line);border-radius:999px;color:var(--ink);transition:all .5s;margin:6px}
+.btn:hover{border-color:var(--c);box-shadow:0 0 24px -6px var(--c);color:#fff}
+.btn.ghost{border-color:transparent;color:var(--dim)}
+.btn.ghost:hover{color:var(--ink);box-shadow:none;border-color:var(--line)}
+
+.safety h2,.intro h2,.outro h2,.log h2{font-family:var(--sc);font-weight:300;letter-spacing:.2em;font-size:15px;color:var(--c);margin:0 0 18px}
+.safety ul{padding-left:20px;margin:0 0 30px}
+.safety li{margin-bottom:12px;color:var(--ink)}
+.safety li b{font-weight:400;color:#fff}
+
+.map{max-width:560px}
+.map .head{text-align:center;margin-bottom:34px}
+.map .head .sub{margin-bottom:6px}
+.desc{position:relative;padding-left:76px}
+.desc:before{content:"";position:absolute;left:58px;top:8px;bottom:8px;width:1px;background:linear-gradient(var(--line),rgba(143,230,220,.06))}
+.ch{position:relative;display:block;width:100%;text-align:left;padding:12px 14px 14px;margin-bottom:10px;border-radius:10px;transition:background .5s}
+.ch:not([disabled]):hover{background:rgba(143,230,220,.06)}
+.ch[disabled]{cursor:default;opacity:.32}
+.ch .m{position:absolute;left:-76px;top:15px;width:50px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--faint)}
+.ch .dot{position:absolute;left:-22px;top:21px;width:9px;height:9px;border-radius:50%;border:1px solid var(--c);background:var(--abyss)}
+.ch.done .dot{background:var(--c);box-shadow:0 0 12px var(--c)}
+.ch .t{font-size:21px;font-weight:400}
+.ch .t i{font-family:var(--sc);font-style:normal;font-size:14px;letter-spacing:.2em;color:var(--c);margin-right:10px}
+.ch .g{font-size:14.5px;color:var(--dim);font-style:italic}
+.ch .res{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:2px}
+.tonight{margin:8px 0 26px;padding:14px 18px;border:1px solid var(--line);border-radius:12px;font-size:16px;color:var(--dim)}
+.tonight b{font-weight:400;color:var(--ink)}
+.mapfoot{text-align:center;margin-top:24px}
+
+.intro .num{font-family:var(--sc);letter-spacing:.3em;color:var(--c);font-size:15px}
+.intro h3,.outro h3{font-weight:300;font-style:italic;font-size:clamp(30px,6vw,42px);margin:4px 0 26px;line-height:1.2}
+.lines p{margin:0 0 16px;opacity:0;transform:translateY(6px);transition:opacity 1.6s ease,transform 1.6s ease}
+.lines p.in{opacity:1;transform:none}
+.lines p.instr{color:var(--c);font-style:italic}
+details{margin:26px 0 30px;border-top:1px solid var(--line);padding-top:14px}
+summary{font-family:var(--sc);letter-spacing:.18em;font-size:14px;color:var(--dim);cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"+ ";color:var(--c)}
+details[open] summary:before{content:"– "}
+details p{font-size:16.5px;color:var(--dim);margin:12px 0 0}
+.meta{font-family:var(--mono);font-size:12.5px;color:var(--faint);letter-spacing:.04em;margin-bottom:8px}
+.res-box{font-family:var(--mono);font-size:14px;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:0 0 30px;line-height:1.8}
+.res-box .big{font-size:26px;color:var(--c);font-weight:300}
+.res-box .dim{color:var(--dim)}
+.res-box .row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed rgba(143,230,220,.12)}
+
+#play{position:fixed;inset:0;z-index:12;touch-action:none;opacity:0;pointer-events:none;transition:opacity 1.2s}
+#play.on{opacity:1;pointer-events:auto}
+#cue{position:absolute;left:0;right:0;top:16vh;text-align:center;pointer-events:none}
+#cue-word{font-style:italic;font-size:clamp(28px,6vw,40px);letter-spacing:.02em;transition:opacity .6s;min-height:1.3em}
+#cue-count{font-family:var(--mono);font-weight:300;font-size:22px;color:var(--c);margin-top:2px;min-height:1.4em}
+#cue-sub{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:4px;letter-spacing:.05em;min-height:1.4em}
+#cue-hint{position:absolute;left:16px;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));text-align:center;font-size:15px;font-style:italic;color:var(--dim);pointer-events:none;transition:opacity 1s}
+#pbtns{position:absolute;left:0;right:0;bottom:calc(30px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:12px;flex-wrap:wrap;padding:0 16px}
+#pbtns .btn{font-size:13px;padding:10px 20px;background:rgba(2,6,11,.45);backdrop-filter:blur(4px)}
+#prog{position:absolute;left:0;bottom:0;height:2px;background:var(--c);opacity:.5;width:0;transition:width .4s linear}
+
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(1,3,6,.72);padding:16px}
+.modal .card{max-width:420px;text-align:center;border:1px solid var(--line);border-radius:16px;padding:28px 22px;background:rgba(3,10,16,.9)}
+
+.log .pb{font-family:var(--mono);font-size:44px;font-weight:300;color:var(--c);line-height:1.1}
+.log .stats{display:flex;gap:26px;flex-wrap:wrap;margin:14px 0 26px;font-size:15px;color:var(--dim)}
+.log .stats b{display:block;font-family:var(--mono);font-weight:300;font-size:20px;color:var(--ink)}
+.log table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+.log td{padding:7px 6px;border-bottom:1px dashed rgba(143,230,220,.12);vertical-align:top}
+.log td:first-child{white-space:nowrap;color:var(--faint)}
+.log .set{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 28px;font-size:15px;color:var(--dim)}
+.log input{font-family:var(--mono);font-size:15px;width:84px;padding:7px 10px;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+.empty{font-style:italic;color:var(--faint);font-size:15px}
+
+#ending .lines p{font-size:21px}
+@media (max-width:520px){
+  body{font-size:17.5px}
+  .desc{padding-left:58px}.desc:before{left:42px}.ch .m{left:-60px;width:38px;font-size:11px}.ch .dot{left:-21px}
+  #hud{font-size:12px;letter-spacing:.12em}
+}
+@media (prefers-reduced-motion:reduce){.screen,.lines p{transition-duration:.01s}}
+</style>
+</head>
+<body>
+<canvas id="sea"></canvas>
+<div id="veil"></div>
+
+<div id="hud">
+  <div id="hud-l">UNDERTOW</div>
+  <div class="r">
+    <span id="depth">0 m</span>
+    <button class="hbtn" id="b-snd" title="Sound (M)">sound on</button>
+  </div>
+</div>
+
+<!-- TITLE -->
+<section class="screen on" id="s-title">
+  <div class="card center">
+    <h1>UNDERTOW</h1>
+    <p class="sub">a breath-held descent to the drowned city of Ys</p>
+    <button class="btn" id="b-begin">go down</button>
+    <p class="note">Headphones help. Sit or lie down.<br>Everything is told in sound too, so you can close your eyes once you're under.</p>
+  </div>
+</section>
+
+<!-- SAFETY -->
+<section class="screen safety" id="s-safety">
+  <div class="card">
+    <h2>BEFORE YOU GO UNDER</h2>
+    <ul>
+      <li><b>This is dry practice only.</b> Never do breath-hold training in or near water, in the bath, while driving, or standing up.</li>
+      <li>Sit or lie down somewhere safe. <b>Never push toward blackout.</b> Belly twitches (contractions) are normal. Dizziness, tingling, or tunnel vision mean stop and breathe.</li>
+      <li><b>Don't hyperventilate</b> before a hold. Calm, slow breaths only.</li>
+      <li>Skip the breath-hold chapters (IV–VII) if you're pregnant or have a heart, lung, or blood-pressure condition, or epilepsy. Chapters I–III are gentle breathing and fine for most people.</li>
+      <li>Do at most one breath-hold table a day.</li>
+    </ul>
+    <div class="center"><button class="btn" id="b-ack">I'm on dry land</button></div>
+  </div>
+</section>
+
+<!-- MAP -->
+<section class="screen" id="s-map">
+  <div class="card map">
+    <div class="head">
+      <p class="sub" style="margin-bottom:4px">the descent</p>
+      <div class="meta" id="map-meta"></div>
+    </div>
+    <div id="tonight" class="tonight" hidden></div>
+    <div class="desc" id="chlist"></div>
+    <div class="mapfoot">
+      <button class="btn ghost" id="b-log">logbook</button>
+      <button class="btn ghost" id="b-title">title</button>
+    </div>
+  </div>
+</section>
+
+<!-- INTRO -->
+<section class="screen intro" id="s-intro">
+  <div class="card">
+    <div class="num" id="in-num"></div>
+    <h3 id="in-title"></h3>
+    <div class="lines" id="in-lines"></div>
+    <details id="in-det"><summary>THE PRACTICE</summary><p id="in-prac"></p></details>
+    <div class="meta" id="in-meta"></div>
+    <div style="margin-top:18px">
+      <button class="btn" id="b-go">go under</button>
+      <button class="btn ghost" id="b-back">back</button>
+    </div>
+  </div>
+</section>
+
+<!-- OUTRO -->
+<section class="screen outro" id="s-outro">
+  <div class="card">
+    <h2 id="out-num"></h2>
+    <div class="res-box" id="out-res"></div>
+    <div class="lines" id="out-lines"></div>
+    <div style="margin-top:20px"><button class="btn" id="b-cont">descend</button></div>
+  </div>
+</section>
+
+<!-- LOG -->
+<section class="screen log" id="s-log">
+  <div class="card">
+    <h2>LOGBOOK</h2>
+    <div class="meta">relaxed static hold · personal best</div>
+    <div class="pb" id="log-pb">—</div>
+    <div class="set">set it by hand: <input id="pb-in" placeholder="1:30" inputmode="numeric"><button class="btn" id="b-pbset" style="margin:0;padding:7px 16px;font-size:13px">save</button><span id="pb-msg"></span></div>
+    <div class="stats" id="log-stats"></div>
+    <div id="log-hist"></div>
+    <div style="margin-top:30px">
+      <button class="btn" id="b-logback">back</button>
+      <button class="btn ghost" id="b-reset">erase all progress</button>
+    </div>
+  </div>
+</section>
+
+<!-- ENDING -->
+<section class="screen" id="ending">
+  <div class="card">
+    <div class="lines" id="end-lines"></div>
+    <div id="end-btn" style="margin-top:26px;opacity:0;transition:opacity 2s"><button class="btn" id="b-surface">surface</button></div>
+  </div>
+</section>
+
+<!-- PLAY -->
+<div id="play">
+  <div id="cue"><div id="cue-word"></div><div id="cue-count"></div><div id="cue-sub"></div></div>
+  <div id="cue-hint"></div>
+  <div id="pbtns">
+    <button class="btn" id="b-c" hidden>contraction · C</button>
+    <button class="btn" id="b-air" hidden>I need to breathe · space</button>
+    <button class="btn ghost" id="b-exit">surface early</button>
+  </div>
+  <div id="prog"></div>
+</div>
+
+<div class="modal" id="m-exit" hidden>
+  <div class="card">
+    <p style="margin-top:0">Surface early?<br><span style="color:var(--dim);font-size:16px;font-style:italic">This chapter won't be counted. Come up slowly.</span></p>
+    <button class="btn" id="b-stay">stay down</button>
+    <button class="btn ghost" id="b-up">surface</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =========================================================
+   UNDERTOW: a dry breath-training descent.
+   Everything is synthesized live. Progress lives in localStorage.
+   ========================================================= */
+
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => 0.5 - 0.5 * Math.cos(Math.PI * clamp(t, 0, 1));
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const SPEED = new URLSearchParams(location.search).has('fast') ? 15 : 1; // ?fast for testing
+const today = () => new Date().toISOString().slice(0, 10);
+
+/* ---------------- save ---------------- */
+const KEY = 'undertow.v1';
+const DEFAULT = { ack: false, done: {}, best: {}, pb: 0, pbDate: null, log: [], ended: false };
+let S = load();
+function load() {
+  try { const r = JSON.parse(localStorage.getItem(KEY)); if (r) return Object.assign({}, DEFAULT, r); } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULT));
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function addLog(entry) { S.log.unshift(Object.assign({ d: today() }, entry)); S.log = S.log.slice(0, 200); save(); }
+
+/* ---------------- tables from PB ---------------- */
+const r5 = s => Math.round(s / 5) * 5;
+function pbBase() { return Math.max(S.pb || 0, 30); }
+function co2Table() { const h = clamp(r5(pbBase() * 0.5), 15, 150); return [105, 90, 75, 60, 45, 30].map(r => ({ rest: r, hold: h })); }
+function o2Table() { return [0.40, 0.47, 0.54, 0.61, 0.68, 0.75].map(f => ({ rest: 90, hold: clamp(r5(pbBase() * f), 15, 240) })); }
+const tableMins = t => Math.round(t.reduce((a, r) => a + r.rest + r.hold, 0) / 60 + 0.5);
+
+/* ---------------- chapters ---------------- */
+const CH = [
+  { n: 1, num: 'I', title: 'The Bay of Douarnenez', depth: [0, 14], color: [143, 230, 220], root: 55,
+    tag: 'long exhale · in 4, out 6', meta: () => '8 breaths · about 2 minutes',
+    intro: () => [
+      'They say a city sleeps under this bay. They say that on still nights you can hear its bells.',
+      'You came to listen, and the water rose up to listen with you.',
+      'Here the snow falls upward. Here the sea breathes more slowly than you do.',
+      { i: 'Match it. Press and hold (space, or a finger on the screen) while you breathe in. Let go while you breathe out.' }],
+    prac: 'Breathing out for longer than you breathe in slows your heart a little on every exhale. Your heart speeds up slightly on the in-breath and slows on the out-breath (respiratory sinus arrhythmia), so a long exhale tips your nervous system toward rest. Free divers begin every dive this way.',
+    outro: () => [
+      'Something below answered. Not a bell yet: a hum, like one held note in a stone room.',
+      'The water opens downward like a door.'],
+    act: { kind: 'paced', pattern: [['in', 4], ['out', 6]], cycles: 8 } },
+
+  { n: 2, num: 'II', title: 'The Gate of Dahut', depth: [14, 30], color: [232, 212, 158], root: 49,
+    tag: 'box breathing · 4 · 4 · 4 · 4', meta: () => '6 squares · about 2 minutes',
+    intro: () => [
+      'Princess Dahut stole the silver key and opened the sluice gates, and her father\'s city drowned. The gates have stood ajar ever since.',
+      'They open one square at a time: in, hold, out, hold.',
+      'Four sides, four counts.',
+      { i: 'Keep pressing through the inhale and the full hold. Let go for the exhale and the empty hold.' }],
+    prac: 'Box breathing (4-4-4-4) is used by pilots, surgeons and divers to steady their attention under pressure. The two holds teach you to be still with full lungs and with empty ones, which is the first comfort any breath-holder needs.',
+    outro: () => [
+      'The gate was never locked. It only wanted to be breathed at in squares.',
+      'Beyond it is a long nave. Overhead, the pillars curve inward and meet, like ribs.'],
+    act: { kind: 'paced', pattern: [['in', 4], ['full', 4], ['out', 4], ['empty', 4]], cycles: 6 } },
+
+  { n: 3, num: 'III', title: 'The Choir of Sleepers', depth: [30, 46], color: [196, 170, 242], root: 58.27,
+    tag: '4 · 7 · 8 breathing', meta: () => '4 breaths · about 1½ minutes',
+    intro: () => [
+      'The drowned are asleep in the choir stalls, and they sing in their sleep.',
+      'They breathe in for four, hold for seven, and let the long note go for eight.',
+      'They are very old, and they have never once been out of time.',
+      { i: 'After two breaths the lantern will dim. Follow their voices instead.' }],
+    prac: '4-7-8 breathing has a hold longer than the inhale and an exhale longer than both. It is a strong downshift and is often used for falling asleep. Four rounds is plenty. Feeling a little light-headed at first is common, so keep it soft rather than forced.',
+    outro: () => [
+      'When you stopped watching the light, you kept time anyway.',
+      'The sleepers turned toward you without waking. One of them has your face, only older.',
+      'It does not seem surprised to see you.'],
+    act: { kind: 'paced', pattern: [['in', 4], ['full', 7], ['out', 8]], cycles: 4, fadeAfter: 2, sound: 'choir' } },
+
+  { n: 4, num: 'IV', title: 'The Belfry', depth: [46, 62], color: [240, 230, 214], root: 43.65,
+    tag: 'relaxed static hold · your baseline', meta: () => '72 s breathe-up · one hold · recovery',
+    intro: () => [
+      'The bell tower hangs upside down from the roof of the sea.',
+      'The bell-ringer left a note: Count how long you can stay without breathing. Not until it hurts. Until it asks.',
+      'First, breathe slowly for a while. Then take one full breath and tap when you begin to hold. Tap again when you breathe.',
+      { i: 'If your belly starts to twitch, press C. Those are contractions, and they are harmless. The bell tolls once for every half minute.' }],
+    prac: 'This is a relaxed dry static apnea, and it becomes your baseline: the next two chapters build training tables from it. Your heart will slow as you hold. That is the mammalian dive reflex, which every mammal has. Stop at the first strong urge rather than fighting it. A good baseline is one you could repeat tomorrow.',
+    outro: r => [
+      `${fmt(r.held)}. The bell-ringer writes it on the wall in chalk, beside other numbers in your handwriting.`,
+      'You don\'t remember writing any of them.'],
+    act: { kind: 'measure' } },
+
+  { n: 5, num: 'V', title: 'The Crypt of Clocks', depth: [62, 80], color: [150, 214, 182], root: 46.25,
+    tag: 'CO₂ table · fixed hold, shrinking rest', meta: () => { const t = co2Table(); return `6 rounds · hold ${fmt(t[0].hold)} · rest 1:45 → 0:30 · about ${tableMins(t)} minutes`; },
+    intro: () => { const h = fmt(co2Table()[0].hold); return [
+      'Every clock in the crypt runs backward.',
+      `Here the rests grow shorter each round, while the hold stays the same: ${h}, every time.`,
+      'The crypt is teaching your body that the burning is only a message, not an emergency.',
+      { i: 'Rest and breathe easy. When you hear the low bell, hold. If you need air early, press space. That is allowed, and the crypt keeps no grudges.' }]; },
+    prac: 'A CO₂ table builds tolerance to carbon dioxide. The urge to breathe comes from rising CO₂, not from falling oxygen. Each hold is about 50% of your best, and the rest shrinks each round, so you begin every hold with a little more CO₂ in your blood. Tap C at your first contraction: over the weeks you will see it arrive later.',
+    outro: () => [
+      'All the clocks have wound back to the same hour, the hour the city went under.',
+      'Somewhere far above, a heart is beating very slowly. It may be yours.'],
+    act: { kind: 'table', type: 'co2' } },
+
+  { n: 6, num: 'VI', title: 'The Organ of Tides', depth: [80, 100], color: [242, 170, 190], root: 36.71,
+    tag: 'O₂ table · fixed rest, rising hold', meta: () => { const t = o2Table(); return `6 rounds · rest 1:30 · hold ${fmt(t[0].hold)} → ${fmt(t[5].hold)} · about ${tableMins(t)} minutes`; },
+    intro: () => [
+      'The organ is built from held breaths. Every breath anyone ever held down here became a pipe.',
+      'The rests stay the same. The holds grow longer.',
+      'Each hold you finish adds a note.',
+      { i: 'Same as the crypt: rest, then hold at the low bell. Breathe early if you need to. The organ will wait.' }],
+    prac: 'An O₂ table gets your body used to longer holds and to working on less oxygen. The rests stay fixed while the holds climb from about 40% to 75% of your best. Do no more than one table a day, never a CO₂ table and an O₂ table back to back, and alternate them across the week.',
+    outro: () => [
+      'The organ plays the chord you built. The vaulted ceiling flexes in and out in time with it.',
+      'The pillars aren\'t pillars. You have known that for a while.'],
+    act: { kind: 'table', type: 'o2' } },
+
+  { n: 7, num: 'VII', title: 'Ys', depth: [100, 100], color: [214, 234, 255], root: 55,
+    tag: 'your own rhythm · resonance breathing', meta: () => 'as long as it takes · then one last hold',
+    intro: () => [
+      'Now the city follows you.',
+      'Breathe however you breathe. Press while the air comes in and let go while it leaves. The cathedral will copy you.',
+      'Slow down until you are breathing more slowly than the tide.',
+      { i: 'Under six breaths a minute, the bell will rise to meet you.' }],
+    prac: 'Around six breaths a minute is called resonance, or coherent, breathing. For most people it lines up the heart\'s rhythm with the breath and produces the largest swing in heart-rate variability. Nothing paces you here. This is your own rhythm, slowed down.',
+    outro: () => [],
+    act: { kind: 'free' } },
+];
+
+const ENDING = [
+  'The bell rings, and the sound is your breath going out.',
+  'The ribs of the vault are your ribs. The nave is the long dark of your throat. The sleepers in the stalls are every version of you that stayed calm when it could have panicked.',
+  'Ys was never under the bay.',
+  'It is the city you go down into whenever you hold still: a drowned place that needs no air, because it is made of the air you kept.',
+  'The Bretons say that when Paris sinks, Ys will rise again.',
+  'Surface now, slowly. Three breaths in, each with a short pause at the top.',
+  'You can come back down any night.'];
+
+/* =========================================================
+   AUDIO
+   ========================================================= */
+const A = {
+  ctx: null, on: true,
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const C = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.master = C.createGain(); this.master.gain.value = this.on ? 0.9 : 0;
+    const comp = C.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3; comp.knee.value = 12;
+    this.master.connect(comp); comp.connect(C.destination);
+    this.verb = C.createConvolver(); this.verb.buffer = this.impulse(6, 2.4);
+    const wet = C.createGain(); wet.gain.value = 0.6; this.verb.connect(wet); wet.connect(this.master);
+    this.dry = C.createGain(); this.dry.gain.value = 0.8; this.dry.connect(this.master);
+    this.bus = C.createGain(); this.bus.connect(this.dry); this.bus.connect(this.verb);
+    this.sea = C.createBiquadFilter(); this.sea.type = 'lowpass'; this.sea.frequency.value = 2200; this.sea.connect(this.bus);
+    this.brown = this.noise(6, 'brown'); this.pink = this.noise(4, 'pink');
+    this.ambient(); this.breathVoice();
+  },
+  t() { return this.ctx.currentTime; },
+  impulse(sec, decay) {
+    const C = this.ctx, len = C.sampleRate * sec, b = C.createBuffer(2, len, C.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
+    return b;
+  },
+  noise(sec, kind) {
+    const C = this.ctx, len = C.sampleRate * sec, b = C.createBuffer(1, len, C.sampleRate), d = b.getChannelData(0);
+    let last = 0, b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      if (kind === 'brown') { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+      else { b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0527; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2; }
+    }
+    return b;
+  },
+  loop(buf) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s; },
+  hold(p, v, at) { // freeze a param at its current value before new ramps
+    at = at || this.t();
+    if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(at); else { p.cancelScheduledValues(at); p.setValueAtTime(p.value, at); }
+  },
+  ambient() {
+    const C = this.ctx;
+    const n = this.loop(this.brown), lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 340;
+    const g = C.createGain(); g.gain.value = 0.32; n.connect(lp); lp.connect(g); g.connect(this.sea);
+    const lfo = C.createOscillator(), lg = C.createGain(); lfo.frequency.value = 0.06; lg.gain.value = 0.14; lfo.connect(lg); lg.connect(g.gain); lfo.start();
+    this.ambLP = lp;
+    const dg = C.createGain(); dg.gain.value = 0.0; const dlp = C.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 520;
+    dlp.connect(dg); dg.connect(this.bus); this.droneG = dg;
+    this.drones = [1, 1.5, 2.003, 3.0].map((m, i) => {
+      const o = C.createOscillator(); o.type = i === 2 ? 'triangle' : 'sine'; o.frequency.value = 55 * m;
+      const og = C.createGain(); og.gain.value = [0.5, 0.28, 0.14, 0.06][i];
+      const tl = C.createOscillator(), tg = C.createGain(); tl.frequency.value = 0.05 + i * 0.037; tg.gain.value = og.gain.value * 0.6; tl.connect(tg); tg.connect(og.gain); tl.start();
+      o.connect(og); og.connect(dlp); o.start(); return { o, m };
+    });
+    dg.gain.setTargetAtTime(0.09, this.t(), 4);
+  },
+  setRoot(f, depth) {
+    if (!this.ctx) return; const t = this.t();
+    this.drones.forEach(d => { this.hold(d.o.frequency); d.o.frequency.setTargetAtTime(f * d.m, t, 2.5); });
+    this.hold(this.ambLP.frequency); this.ambLP.frequency.setTargetAtTime(lerp(380, 170, clamp(depth / 100, 0, 1)), t, 3);
+  },
+  breathVoice() {
+    const C = this.ctx;
+    const n = this.loop(this.pink); const bp = C.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.1; bp.frequency.value = 400;
+    const g = C.createGain(); g.gain.value = 0; n.connect(bp); bp.connect(g); g.connect(this.sea);
+    const o = C.createOscillator(); o.type = 'sine'; o.frequency.value = 220; const og = C.createGain(); og.gain.value = 0;
+    o.connect(og); og.connect(this.bus); o.start();
+    const s1 = C.createOscillator(), s2 = C.createOscillator(), sg = C.createGain(); s1.frequency.value = 880; s2.frequency.value = 883.2; sg.gain.value = 0;
+    s1.connect(sg); s2.connect(sg); sg.connect(this.bus); s1.start(); s2.start();
+    this.bv = { bp, g, o, og, sg, s1, s2 };
+  },
+  breath(type, dur, root, quiet) {
+    if (!this.ctx) return; const { bp, g, o, og, sg, s1, s2 } = this.bv, t = this.t(); root = root || 55;
+    const k = quiet ? 0.45 : 1;
+    [bp.frequency, g.gain, o.frequency, og.gain, sg.gain].forEach(p => this.hold(p, 0, t));
+    if (type === 'in') {
+      bp.frequency.linearRampToValueAtTime(1150, t + dur);
+      g.gain.linearRampToValueAtTime(0.26 * k, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.16 * k, t + dur);
+      o.frequency.exponentialRampToValueAtTime(root * 6, t + dur); og.gain.linearRampToValueAtTime(0.03 * k, t + dur * 0.7);
+      sg.gain.setTargetAtTime(0, t, 0.3);
+    } else if (type === 'full') {
+      g.gain.setTargetAtTime(0.025 * k, t, 0.5); og.gain.setTargetAtTime(0.012 * k, t, 0.8);
+      s1.frequency.setValueAtTime(root * 16, t); s2.frequency.setValueAtTime(root * 16 + 2.7, t);
+      sg.gain.setTargetAtTime(0.018 * k, t, 0.6);
+    } else if (type === 'out') {
+      g.gain.linearRampToValueAtTime(0.24 * k, t + 0.5); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      bp.frequency.exponentialRampToValueAtTime(240, t + dur);
+      o.frequency.exponentialRampToValueAtTime(root * 3, t + dur); og.gain.linearRampToValueAtTime(0.0, t + dur);
+      sg.gain.setTargetAtTime(0, t, 0.4);
+    } else {
+      g.gain.setTargetAtTime(0, t, 0.3); og.gain.setTargetAtTime(0, t, 0.3); sg.gain.setTargetAtTime(0, t, 0.3);
+      o.frequency.setTargetAtTime(root * 4, t + 0.5, 0.2); bp.frequency.setTargetAtTime(300, t + 0.5, 0.2);
+    }
+  },
+  bell(f, gain, dur, at) {
+    if (!this.ctx) return; const C = this.ctx, t = at || this.t(); gain = gain || 0.3; dur = dur || 6;
+    const R = [0.5, 1, 1.19, 1.5, 2, 2.52, 2.66, 3.01, 4.17], G = [0.45, 1, 0.55, 0.3, 0.6, 0.22, 0.18, 0.15, 0.1], D = [1.5, 1, 0.8, 0.7, 0.55, 0.45, 0.4, 0.33, 0.22];
+    const lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; lp.connect(this.bus);
+    R.forEach((r, i) => {
+      const o = C.createOscillator(), g = C.createGain(); o.frequency.value = f * r * (1 + (Math.random() - 0.5) * 0.002);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain * G[i] * 0.35, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur * D[i]);
+      o.connect(g); g.connect(lp); o.start(t); o.stop(t + dur * D[i] + 0.1);
+    });
+  },
+  toll(n, f) { const t = this.t(); for (let i = 0; i < n; i++) this.bell(f || 130.81, 0.16, 7, t + i * 1.5); },
+  holdStart() { this.bell(97.99, 0.4, 9); },
+  breathe() { const t = this.t(); this.bell(392, 0.16, 5, t); this.bell(587.33, 0.11, 5, t + 0.12); this.breath('in', 3, 98); },
+  heart(gain) {
+    if (!this.ctx) return; const C = this.ctx, t = this.t(); gain = gain || 0.5;
+    [0, 0.27].forEach((dt, i) => {
+      const o = C.createOscillator(), g = C.createGain(); o.frequency.setValueAtTime(62, t + dt); o.frequency.exponentialRampToValueAtTime(34, t + dt + 0.14);
+      g.gain.setValueAtTime(0, t + dt); g.gain.linearRampToValueAtTime(gain * (i ? 0.6 : 1), t + dt + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.22);
+      o.connect(g); g.connect(this.dry); o.start(t + dt); o.stop(t + dt + 0.3);
+    });
+  },
+  ping(f, gain, at) {
+    if (!this.ctx) return; const C = this.ctx, t = at || this.t();
+    const o = C.createOscillator(), g = C.createGain(); o.frequency.value = f || 1320;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain || 0.06, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+    o.connect(g); g.connect(this.bus); o.start(t); o.stop(t + 1.7);
+  },
+  tick(rev, gain) {
+    if (!this.ctx) return; const C = this.ctx, t = this.t(); gain = gain || 0.05;
+    const s = C.createBufferSource(); s.buffer = this.pink; const hp = C.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = rev ? 2400 : 3200; hp.Q.value = 4;
+    const g = C.createGain();
+    if (rev) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.11); g.gain.setValueAtTime(0, t + 0.115); }
+    else { g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06); }
+    s.connect(hp); hp.connect(g); g.connect(this.bus); s.start(t, Math.random() * 2, 0.2);
+  },
+  // ----- choir (chapter III, VII) -----
+  choirOn() {
+    if (!this.ctx || this.choir) return; const C = this.ctx;
+    const out = C.createGain(); out.gain.value = 0; const lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
+    out.connect(lp); lp.connect(this.bus);
+    const voices = [146.83, 220, 293.66, 349.23].map((f, i) => {
+      const o = C.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+      const v = C.createOscillator(), vg = C.createGain(); v.frequency.value = 4.6 + i * 0.37; vg.gain.value = f * 0.004; v.connect(vg); vg.connect(o.frequency); v.start();
+      const f1 = C.createBiquadFilter(), f2 = C.createBiquadFilter(); f1.type = f2.type = 'bandpass'; f1.Q.value = 7; f2.Q.value = 9; f1.frequency.value = 400; f2.frequency.value = 900;
+      const g1 = C.createGain(), g2 = C.createGain(); g1.gain.value = 0.9; g2.gain.value = 0.45;
+      o.connect(f1); o.connect(f2); f1.connect(g1); f2.connect(g2); g1.connect(out); g2.connect(out); o.start();
+      return { o, f1, f2, base: f, v };
+    });
+    this.choir = { out, voices };
+  },
+  choirPhase(type, dur) {
+    const ch = this.choir; if (!ch) return; const t = this.t();
+    const vowel = { in: [720, 1160], full: [330, 820], out: [480, 860], empty: [330, 820] }[type];
+    this.hold(ch.out.gain);
+    ch.voices.forEach((v, i) => {
+      [v.o.frequency, v.f1.frequency, v.f2.frequency].forEach(p => this.hold(p));
+      v.f1.frequency.linearRampToValueAtTime(vowel[0] * (1 + i * 0.03), t + Math.min(dur, 2));
+      v.f2.frequency.linearRampToValueAtTime(vowel[1] * (1 + i * 0.02), t + Math.min(dur, 2));
+      if (type === 'in') { v.o.frequency.setValueAtTime(v.base * 0.89, t); v.o.frequency.exponentialRampToValueAtTime(v.base, t + dur); }
+      if (type === 'out') v.o.frequency.exponentialRampToValueAtTime(v.base * 0.84, t + dur);
+    });
+    if (type === 'in') ch.out.gain.linearRampToValueAtTime(0.11, t + dur);
+    else if (type === 'full') ch.out.gain.setTargetAtTime(0.085, t, 1);
+    else if (type === 'out') ch.out.gain.linearRampToValueAtTime(0.0001, t + dur);
+    else ch.out.gain.setTargetAtTime(0, t, 0.3);
+  },
+  choirOff() {
+    const ch = this.choir; if (!ch) return; this.choir = null; const t = this.t();
+    this.hold(ch.out.gain); ch.out.gain.setTargetAtTime(0, t, 0.6);
+    ch.voices.forEach(v => { v.o.stop(t + 4); v.v.stop(t + 4); });
+  },
+  // ----- organ (chapter VI) -----
+  organ: [],
+  organNote(f) {
+    if (!this.ctx) return; const C = this.ctx, t = this.t();
+    const g = C.createGain(); g.gain.value = 0; g.connect(this.bus);
+    const oscs = [[1, 0.5], [2, 0.35], [3, 0.12], [4, 0.16], [6, 0.05], [8, 0.06]].map(([m, a]) => {
+      const o = C.createOscillator(), og = C.createGain(); o.frequency.value = f * m * (1 + (Math.random() - 0.5) * 0.0015); og.gain.value = a; o.connect(og); og.connect(g); o.start(); return o;
+    });
+    g.gain.linearRampToValueAtTime(0.06, t + 3); g.gain.setTargetAtTime(0.028, t + 5, 2.5);
+    this.organ.push({ g, oscs });
+  },
+  organSwell(level, tc) { if (!this.ctx) return; const t = this.t(); this.organ.forEach(n => { this.hold(n.g.gain); n.g.gain.setTargetAtTime(level, t, tc || 1.5); }); },
+  organOff() { if (!this.ctx) return; const t = this.t(); this.organ.forEach(n => { this.hold(n.g.gain); n.g.gain.setTargetAtTime(0, t, 1.2); n.oscs.forEach(o => o.stop(t + 7)); }); this.organ = []; },
+  setOn(v) { this.on = v; if (this.ctx) { this.hold(this.master.gain); this.master.gain.setTargetAtTime(v ? 0.9 : 0, this.t(), 0.1); } },
+};
+
+/* =========================================================
+   VISUALS
+   ========================================================= */
+const cv = $('#sea'), cx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() { DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; cx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+addEventListener('resize', resize); resize();
+
+const V = {
+  depth: 0, depthT: 0, vol: 0, guide: 1, guideT: 1, col: [143, 230, 220], colT: [143, 230, 220],
+  arch: 0, archT: 0, hb: 0, bellSwing: 0, ring: null, mismatch: 0, scored: false, target: null,
+  clock: 0, clockSpin: 0, showClock: 0, showClockT: 0, pipes: [], sleepers: 0, sleepersT: 0,
+  belfry: 0, belfryT: 0, dim: 1, dimT: 1, bigBell: 0, bigBellT: 0, bellFlash: 0, rib: 0, ribT: 0, snowDir: -1, cFlash: 0, time: 0,
+};
+const snow = Array.from({ length: 170 }, () => ({ x: Math.random(), y: Math.random(), z: Math.random(), w: Math.random() * 6.28 }));
+const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+
+function bgColors(d) {
+  const stops = [[0, [10, 62, 74], [4, 26, 36]], [30, [8, 34, 58], [3, 12, 24]], [62, [10, 18, 40], [2, 5, 14]], [100, [14, 8, 30], [1, 1, 5]]];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i], b = stops[i + 1];
+    if (d <= b[0]) { const t = (d - a[0]) / (b[0] - a[0]); return [a[1].map((v, k) => lerp(v, b[1][k], t)), a[2].map((v, k) => lerp(v, b[2][k], t))]; }
+  }
+  return [stops[3][1], stops[3][2]];
+}
+
+function archPath(x, base, w, h) {
+  const l = x - w / 2, r = x + w / 2, apex = base - h;
+  cx.beginPath(); cx.moveTo(l, base); cx.lineTo(l, base - h * 0.48);
+  cx.quadraticCurveTo(l, apex + h * 0.12, x, apex);
+  cx.quadraticCurveTo(r, apex + h * 0.12, r, base - h * 0.48); cx.lineTo(r, base);
+}
+function ribPath(x, base, w, h, side) {
+  const s = side, top = base - h * 0.72;
+  cx.beginPath(); cx.moveTo(x, top);
+  cx.bezierCurveTo(x + s * w * 0.55, top - h * 0.12, x + s * w * 0.62, base - h * 0.25, x + s * w * 0.35, base);
+}
+
+function draw(dt) {
+  V.time += dt;
+  const k = 1 - Math.exp(-dt * 1.4), k2 = 1 - Math.exp(-dt * 4);
+  V.depth = lerp(V.depth, V.depthT, k); V.guide = lerp(V.guide, V.guideT, 1 - Math.exp(-dt * 0.8));
+  V.col = V.col.map((c, i) => lerp(c, V.colT[i], k * 0.6));
+  V.arch = lerp(V.arch, V.archT, k * 0.5); V.showClock = lerp(V.showClock, V.showClockT, k);
+  V.sleepers = lerp(V.sleepers, V.sleepersT, k * 0.5); V.belfry = lerp(V.belfry, V.belfryT, k * 0.6);
+  V.bigBell = lerp(V.bigBell, V.bigBellT, k * 0.4); V.rib = lerp(V.rib, V.ribT, 1 - Math.exp(-dt * 0.25));
+  V.dim = lerp(V.dim, V.dimT, k); V.hb *= Math.exp(-dt * 5); V.bellSwing *= Math.exp(-dt * 0.5); V.bellFlash *= Math.exp(-dt * 0.7); V.cFlash *= Math.exp(-dt * 2.5);
+  V.mismatch = lerp(V.mismatch, (V.scored && V.target !== null && INPUT.down !== V.target) ? 1 : 0, k2);
+  V.clock += V.clockSpin * dt;
+
+  const [top, bot] = bgColors(V.depth);
+  const g = cx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, rgba(top, 1)); g.addColorStop(1, rgba(bot, 1));
+  cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+  const col = V.col, X = W / 2, Y = H * 0.56, M = Math.min(W, H), t = V.time, vol = V.vol;
+
+  // light shafts near the surface
+  const ray = 1 - smooth(0, 42, V.depth);
+  if (ray > 0.01) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) {
+      const x0 = W * (0.15 + i * 0.14) + Math.sin(t * 0.13 + i * 2) * 40, sp = 60 + i * 14;
+      const gr = cx.createLinearGradient(0, 0, 0, H * 0.9); gr.addColorStop(0, `rgba(150,230,235,${0.05 * ray})`); gr.addColorStop(1, 'rgba(150,230,235,0)');
+      cx.fillStyle = gr; cx.beginPath(); cx.moveTo(x0 - 18, 0); cx.lineTo(x0 + 18, 0); cx.lineTo(x0 + sp + 120, H * 0.9); cx.lineTo(x0 + sp - 40, H * 0.9); cx.fill();
+    }
+    cx.restore();
+  }
+
+  // the nave: pointed arches drifting toward you, flexing with the breath (they are ribs)
+  if (V.arch > 0.01) {
+    const N = 9, scroll = V.depth * 0.035 + t * 0.006, horizon = H * 0.47;
+    cx.save(); cx.globalCompositeOperation = 'lighter'; cx.lineCap = 'round';
+    for (let i = 0; i < N; i++) {
+      const z = 1 - (((i / N) + scroll) % 1), s = 1 / (z * 5.2 + 0.55);
+      const a = smooth(0.02, 0.22, z) * smooth(1, 0.72, z) * V.arch * (1 - 0.45 * V.dim);
+      if (a < 0.005) continue;
+      const w = W * 0.5 * s * (1 + 0.07 * vol * (1 + V.rib)), h = H * 0.62 * s, base = horizon + H * 0.42 * s;
+      const c2 = V.rib > 0.02 ? col.map((c, j) => lerp(c, [255, 205, 190][j], V.rib * 0.6)) : col;
+      for (const [lw, al] of [[6 * s, 0.05], [1.3 * s, 0.32]]) {
+        cx.lineWidth = Math.max(0.6, lw); cx.strokeStyle = rgba(c2, a * al * (1 - V.rib * 0.5));
+        archPath(X, base, w, h); cx.stroke();
+        if (V.rib > 0.02) { cx.strokeStyle = rgba(c2, a * al * V.rib * 1.6); ribPath(X, base, w, h, -1); cx.stroke(); ribPath(X, base, w, h, 1); cx.stroke(); }
+      }
+    }
+    if (V.rib > 0.02) { // the spine
+      const sg = cx.createLinearGradient(0, horizon - H * 0.2, 0, H); sg.addColorStop(0, rgba([255, 220, 200], 0)); sg.addColorStop(0.5, rgba([255, 220, 200], 0.22 * V.rib)); sg.addColorStop(1, rgba([255, 220, 200], 0));
+      cx.strokeStyle = sg; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(X, horizon - H * 0.2); cx.lineTo(X, H); cx.stroke();
+    }
+    cx.restore();
+  }
+
+  // the sleepers, chapter III
+  if (V.sleepers > 0.01) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (let side = -1; side <= 1; side += 2) for (let r = 0; r < 2; r++) for (let i = 0; i < 4; i++) {
+      const sc = 0.55 + r * 0.35, px = X + side * (M * (0.32 + i * 0.1) * sc + W * 0.06), py = H * (0.6 + r * 0.12) + i * 6;
+      const sway = Math.sin(t * 0.5 + i + r * 2 + side) * 2 + vol * 3;
+      const a = V.sleepers * (0.12 + r * 0.08);
+      cx.strokeStyle = rgba(col, a); cx.lineWidth = 1;
+      cx.beginPath(); cx.arc(px + sway * 0.3, py - 34 * sc - vol * 3 * sc, 9 * sc, Math.PI * 0.95, Math.PI * 2.05); // hood
+      cx.moveTo(px - 9 * sc, py - 32 * sc); cx.quadraticCurveTo(px - 17 * sc, py, px - 14 * sc, py + 26 * sc);
+      cx.moveTo(px + 9 * sc, py - 32 * sc); cx.quadraticCurveTo(px + 17 * sc, py, px + 14 * sc, py + 26 * sc); cx.stroke();
+      if (V.target === false && vol > 0.05) { cx.fillStyle = rgba(col, a * 0.5 * vol); cx.beginPath(); cx.arc(px + side * -6, py - 50 * sc - (1 - vol) * 30, 3 + (1 - vol) * 8, 0, 7); cx.fill(); }
+    }
+    cx.restore();
+  }
+
+  // the clock face, chapter V
+  if (V.showClock > 0.01) {
+    const R = M * 0.34; cx.save(); cx.translate(X, Y); cx.globalCompositeOperation = 'lighter';
+    cx.strokeStyle = rgba(col, 0.14 * V.showClock); cx.lineWidth = 1; cx.beginPath(); cx.arc(0, 0, R, 0, 7); cx.stroke();
+    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; cx.beginPath(); cx.moveTo(Math.cos(a) * R * 0.92, Math.sin(a) * R * 0.92); cx.lineTo(Math.cos(a) * R, Math.sin(a) * R); cx.stroke(); }
+    cx.strokeStyle = rgba(col, 0.28 * V.showClock); cx.lineWidth = 1.4;
+    for (const [len, sp] of [[0.55, 1], [0.82, 12]]) { const a = V.clock * sp - Math.PI / 2; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(Math.cos(a) * R * len, Math.sin(a) * R * len); cx.stroke(); }
+    cx.restore();
+  }
+
+  // the organ pipes, chapter VI
+  if (V.pipes.length) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    const n = V.pipes.length, pw = Math.min(26, W / 22), gap = pw * 0.7;
+    V.pipes.forEach((p, i) => {
+      p.a = lerp(p.a, p.on, k * 0.5);
+      const ph = H * (0.12 + p.h * 0.22), px = X + (i - (n - 1) / 2) * (pw + gap), py = H;
+      const gr = cx.createLinearGradient(0, py - ph, 0, py); gr.addColorStop(0, rgba(col, 0.32 * p.a * (0.7 + 0.3 * vol))); gr.addColorStop(1, rgba(col, 0.02));
+      cx.fillStyle = gr; cx.fillRect(px - pw / 2, py - ph, pw, ph);
+      cx.strokeStyle = rgba(col, 0.4 * p.a); cx.lineWidth = 1; cx.strokeRect(px - pw / 2, py - ph, pw, ph);
+      cx.beginPath(); cx.moveTo(px - pw / 2, py - ph * 0.82); cx.lineTo(px, py - ph * 0.86); cx.lineTo(px + pw / 2, py - ph * 0.82); cx.stroke();
+    });
+    cx.restore();
+  }
+
+  // the bell (IV hangs it from above; VII raises it to meet you)
+  const bellA = Math.max(V.belfry, V.bigBell);
+  if (bellA > 0.01) {
+    const big = V.bigBell > V.belfry, bs = big ? M * 0.36 : M * 0.12, by = big ? Y - bs * 0.15 : H * 0.12;
+    cx.save(); cx.translate(X, by - (big ? 0 : 0)); cx.rotate(Math.sin(t * 1.6) * 0.12 * V.bellSwing); cx.globalCompositeOperation = 'lighter';
+    const a = bellA * (0.22 + V.bellFlash * 0.7);
+    cx.strokeStyle = rgba(col, a); cx.lineWidth = big ? 1.6 : 1.1;
+    cx.beginPath(); cx.moveTo(-bs * 0.18, -bs * 0.5);
+    cx.bezierCurveTo(-bs * 0.42, -bs * 0.5, -bs * 0.34, bs * 0.1, -bs * 0.6, bs * 0.45);
+    cx.lineTo(bs * 0.6, bs * 0.45); cx.bezierCurveTo(bs * 0.34, bs * 0.1, bs * 0.42, -bs * 0.5, bs * 0.18, -bs * 0.5); cx.closePath(); cx.stroke();
+    if (!big) { cx.beginPath(); cx.moveTo(0, -bs * 0.5); cx.lineTo(0, -H); cx.stroke(); }
+    if (V.bellFlash > 0.02) { const gr = cx.createRadialGradient(0, 0, 0, 0, 0, bs * 2); gr.addColorStop(0, rgba(col, 0.25 * V.bellFlash)); gr.addColorStop(1, rgba(col, 0)); cx.fillStyle = gr; cx.fillRect(-bs * 2, -bs * 2, bs * 4, bs * 4); }
+    cx.restore();
+  }
+
+  // the lantern: a jellyfish that breathes for you, or with you
+  {
+    const R0 = M * 0.075, r = R0 * (0.6 + 0.7 * vol) * (1 + 0.06 * V.hb), gA = (0.25 + 0.75 * V.guide) * (1 - 0.82 * V.dim);
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    const halo = cx.createRadialGradient(X, Y, 0, X, Y, r * 4.2);
+    halo.addColorStop(0, rgba(col, 0.34 * gA)); halo.addColorStop(0.3, rgba(col, 0.1 * gA)); halo.addColorStop(1, rgba(col, 0));
+    cx.fillStyle = halo; cx.fillRect(X - r * 4.2, Y - r * 4.2, r * 8.4, r * 8.4);
+    // tendrils
+    cx.lineWidth = 1; cx.strokeStyle = rgba(col, 0.28 * gA);
+    for (let i = 0; i < 7; i++) {
+      const ox = (i - 3) * r * 0.24; cx.beginPath(); cx.moveTo(X + ox, Y + r * 0.15);
+      for (let s = 1; s <= 12; s++) { const yy = Y + r * 0.15 + s * r * 0.24 * (1.3 - vol * 0.3); cx.lineTo(X + ox * (1 - s * 0.03) + Math.sin(t * 1.3 + s * 0.6 + i) * (s * 0.9), yy); }
+      cx.stroke();
+    }
+    // dome
+    cx.fillStyle = rgba(col, 0.16 * gA); cx.strokeStyle = rgba(col, 0.75 * gA); cx.lineWidth = 1.3;
+    cx.beginPath(); cx.ellipse(X, Y, r, r * (0.78 + 0.1 * vol), 0, Math.PI, 0); cx.quadraticCurveTo(X, Y + r * 0.32, X - r, Y); cx.fill(); cx.stroke();
+    const core = cx.createRadialGradient(X, Y - r * 0.3, 0, X, Y - r * 0.3, r * 0.7); core.addColorStop(0, rgba([255, 255, 255], 0.5 * gA)); core.addColorStop(1, rgba(col, 0));
+    cx.fillStyle = core; cx.beginPath(); cx.arc(X, Y - r * 0.3, r * 0.7, 0, 7); cx.fill();
+    // your ring: lit while you press
+    const rr = R0 * 1.75 + R0 * 0.25 * vol, mc = col.map((c, i) => lerp(c, [222, 110, 150][i], V.mismatch));
+    cx.lineWidth = INPUT.down ? 2 : 1; cx.strokeStyle = rgba(mc, INPUT.down ? 0.8 : 0.16 + 0.3 * V.mismatch);
+    cx.beginPath(); cx.arc(X, Y - r * 0.1, rr, 0, 7); cx.stroke();
+    // countdown arc
+    if (V.ring !== null) { cx.lineWidth = 1.5; cx.strokeStyle = rgba(col, 0.5); cx.beginPath(); cx.arc(X, Y - r * 0.1, rr + 12, -Math.PI / 2, -Math.PI / 2 + 6.2832 * clamp(V.ring, 0, 1)); cx.stroke(); }
+    if (V.cFlash > 0.02) { cx.lineWidth = 1; cx.strokeStyle = rgba(col, 0.6 * V.cFlash); cx.beginPath(); cx.arc(X, Y - r * 0.1, rr + 12 + (1 - V.cFlash) * 70, 0, 7); cx.stroke(); }
+    cx.restore();
+  }
+
+  // marine snow: here it falls upward
+  cx.save(); cx.globalCompositeOperation = 'lighter';
+  for (const p of snow) {
+    p.y += V.snowDir * dt * (0.006 + p.z * 0.02); p.w += dt * 0.4; p.x += Math.sin(p.w) * dt * 0.002;
+    if (p.y < -0.02) p.y = 1.02; if (p.y > 1.02) p.y = -0.02; if (p.x < 0) p.x += 1; if (p.x > 1) p.x -= 1;
+    cx.fillStyle = `rgba(220,240,245,${0.12 + p.z * 0.35})`; const s = 0.5 + p.z * 1.6;
+    cx.fillRect(p.x * W, p.y * H, s, s);
+  }
+  cx.restore();
+}
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+const INPUT = { down: false };
+function press() { if (INPUT.down) return; INPUT.down = true; ACT && ACT.stage && ACT.stage.press && ACT.stage.press(); }
+function release() { if (!INPUT.down) return; INPUT.down = false; ACT && ACT.stage && ACT.stage.release && ACT.stage.release(); }
+function contraction() { ACT && ACT.stage && ACT.stage.contraction && ACT.stage.contraction(); }
+addEventListener('keydown', e => {
+  if (e.code === 'KeyM') { toggleSound(); return; }
+  if (!ACT) return;
+  if (e.code === 'Escape') { askExit(); return; }
+  if (!$('#m-exit').hidden) return;
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) press(); }
+  if (e.code === 'KeyC' && !e.repeat) contraction();
+});
+addEventListener('keyup', e => { if (e.code === 'Space' && ACT) { e.preventDefault(); release(); } });
+const playEl = $('#play');
+playEl.addEventListener('pointerdown', e => { if (e.target.closest('button') || !ACT) return; e.preventDefault(); try { playEl.setPointerCapture(e.pointerId); } catch (_) {} press(); });
+playEl.addEventListener('pointerup', e => { if (e.target.closest('button')) return; release(); });
+playEl.addEventListener('pointercancel', release);
+addEventListener('blur', release);
+playEl.addEventListener('contextmenu', e => e.preventDefault());
+
+/* =========================================================
+   STAGES
+   ========================================================= */
+let ACT = null; // { ch, stages, i, stage, results }
+const cue = (w, c, s) => { if (w !== undefined) setText('#cue-word', w); if (c !== undefined) setText('#cue-count', c); if (s !== undefined) setText('#cue-sub', s); };
+const hint = h => setText('#cue-hint', h);
+function setText(sel, v) { const el = $(sel); if (el.textContent !== v) el.textContent = v; }
+function buttons({ c = false, air = false } = {}) { $('#b-c').hidden = !c; $('#b-air').hidden = !air; }
+const WORD = { in: 'breathe in', full: 'hold, full', out: 'breathe out', empty: 'hold, empty' };
+const volFor = (type, p) => type === 'in' ? ease(p) : type === 'full' ? 1 : type === 'out' ? 1 - ease(p) : 0;
+
+function pacedStage({ pattern, cycles, scored = true, fadeAfter = null, sound = 'sea', label = '', quiet = false, lead = 3 }) {
+  const len = pattern.reduce((a, p) => a + p[1], 0), total = len * cycles;
+  return {
+    t: 0, key: -1, agree: 0, tot: 0, fadeShown: false,
+    enter() {
+      V.scored = scored; buttons();
+      hint(scored ? 'press and hold while you breathe in or hold full · let go to breathe out' : 'just follow the light · no extra air');
+      if (sound === 'choir') A.choirOn();
+    },
+    update(dt) {
+      this.t += dt;
+      if (this.t < lead) { cue(label || 'settle', String(Math.ceil(lead - this.t)), ''); V.target = null; V.vol = lerp(V.vol, 0, dt * 2); return 0; }
+      const tt = this.t - lead; if (tt >= total) { V.target = null; V.scored = false; return 1; }
+      const cyc = Math.floor(tt / len); let w = tt - cyc * len, idx = 0;
+      while (w >= pattern[idx][1]) { w -= pattern[idx][1]; idx++; }
+      const [type, dur] = pattern[idx], key = cyc * 16 + idx;
+      if (key !== this.key) {
+        this.key = key;
+        if (sound === 'choir') { A.choirPhase(type, dur); A.breath(type, dur, ROOT(), true); } else A.breath(type, dur, ROOT(), quiet);
+        if (type === 'full' && sound !== 'choir') A.ping(ROOT() * 16, 0.02);
+      }
+      V.vol = volFor(type, w / dur); V.target = (type === 'in' || type === 'full');
+      if (fadeAfter !== null && cyc >= fadeAfter) {
+        V.guideT = 0.06;
+        if (!this.fadeShown) { this.fadeShown = true; hint('the light is going · follow the voices'); }
+      }
+      const dimmed = fadeAfter !== null && cyc >= fadeAfter;
+      cue(dimmed ? '' : WORD[type], dimmed ? '' : String(Math.ceil(dur - w)), (label ? label + ' · ' : '') + `${cyc + 1} of ${cycles}` + (scored && this.tot > 2 ? ` · concord ${Math.round(100 * this.agree / this.tot)}%` : ''));
+      if (scored && w > 0.45) { this.tot += dt; if (INPUT.down === V.target) this.agree += dt; }
+      return tt / total;
+    },
+    exit() { V.guideT = 1; V.target = null; V.scored = false; },
+    result() { return { concord: this.tot ? this.agree / this.tot : 0 }; },
+  };
+}
+
+function readyStage() {
+  return {
+    t: 0, armed: false,
+    enter() { buttons(); A.breath('in', 5, ROOT()); hint(''); },
+    update(dt) {
+      this.t += dt;
+      if (this.t < 5) { V.vol = ease(this.t / 5); cue('one full breath in', '', 'slow and full · not forced'); }
+      else { V.vol = 1; if (!this.armed) { this.armed = true; A.breath('full', 2, ROOT()); } cue('tap as you begin to hold', '', ''); hint('space · or tap the screen'); }
+      return 0;
+    },
+    press() { if (this.t > 1.2) this.done = true; },
+    finished() { return this.done; },
+  };
+}
+
+function holdStage({ target = null, label = '', onEnd }) {
+  return {
+    el: 0, nextBeat: 0.4, tolls: 0, warned: false, lastTick: -1, cs: [], over: false,
+    enter() {
+      A.holdStart(); A.breath('empty', 1, ROOT()); V.target = null; V.vol = 1;
+      buttons({ c: true, air: !!target });
+      hint(target ? 'close your eyes if you like · the bell counts the half-minutes' : 'tap again when you breathe · C at your first contraction');
+      if (CUR().n === 5) V.clockSpin = 0.08;
+    },
+    update(dt) {
+      if (this.over) return 1;
+      this.el += dt;
+      if (this.el >= this.nextBeat) { A.heart(0.42); V.hb = 1; this.nextBeat += 60 / (52 + 16 * Math.exp(-this.el / 25)); }
+      const half = Math.floor(this.el / 30);
+      if (half > this.tolls) { this.tolls = half; A.toll(Math.min(half, 6)); V.bellSwing = 1; }
+      V.vol = 1;
+      if (target) {
+        const rem = target - this.el;
+        if (rem <= 10 && !this.warned && target > 14) { this.warned = true; A.ping(1568, 0.05); A.ping(1568, 0.05, A.t() + 0.35); }
+        if (rem <= 3 && rem > 0 && Math.ceil(rem) !== this.lastTick) { this.lastTick = Math.ceil(rem); A.tick(false, 0.06); }
+        V.ring = rem / target;
+        cue('hold', fmt(rem), label + (this.cs.length ? ` · first contraction ${fmt(this.cs[0])}` : ''));
+        if (rem <= 0) this.end(false);
+      } else {
+        V.ring = (this.el % 60) / 60;
+        cue('hold', fmt(this.el), this.cs.length ? `first contraction ${fmt(this.cs[0])}` : '');
+      }
+      return 0;
+    },
+    press() { if (this.el < 1.5) return; this.end(!!target); },
+    contraction() { this.cs.push(this.el); V.cFlash = 1; A.ping(660, 0.035); },
+    end(early) {
+      if (this.over) return; this.over = true; A.breathe(); V.ring = null;
+      onEnd({ held: Math.round(this.el), target, early, c: this.cs.length ? Math.round(this.cs[0]) : null });
+    },
+    exit() { V.ring = null; buttons(); V.clockSpin = 0; },
+  };
+}
+
+function restStage({ dur, label, nextHold }) {
+  const pat = [['in', 4], ['out', 6]];
+  return {
+    el: 0, key: -1, last: false, lastSec: -1,
+    enter() { buttons(); hint('breathe easy · don\'t pack in extra air'); if (CUR().n === 5) V.clockSpin = -0.9; },
+    update(dt) {
+      this.el += dt; const rem = dur - this.el;
+      if (rem <= 0) return 1;
+      if (CUR().n === 5) { const s = Math.ceil(rem); if (s !== this.lastSec) { this.lastSec = s; A.tick(true, 0.03); } }
+      if (rem > 6.5) {
+        const w0 = this.el % 10, idx = w0 < 4 ? 0 : 1, w = idx ? w0 - 4 : w0, key = Math.floor(this.el / 10) * 2 + idx;
+        if (key !== this.key) { this.key = key; A.breath(pat[idx][0], pat[idx][1], ROOT(), true); }
+        V.vol = volFor(pat[idx][0], w / pat[idx][1]) * 0.8;
+        cue('rest', fmt(rem), `${label} · next hold ${fmt(nextHold)}`);
+      } else {
+        if (!this.last) { this.last = true; A.breath('in', 5, ROOT()); A.ping(ROOT() * 8, 0.04); }
+        V.vol = Math.max(V.vol, ease((6.5 - rem) / 5));
+        cue('final breath in', fmt(rem), 'slow · full · not forced');
+      }
+      V.ring = 1 - this.el / dur;
+      return this.el / dur;
+    },
+    exit() { V.ring = null; V.clockSpin = 0; },
+  };
+}
+
+function followStage() {
+  // chapter VII: the city copies you
+  return {
+    el: 0, presses: [], ok: 0, bpm: null, slowest: null,
+    enter() { buttons(); V.target = null; hint('press while the air comes in · let go while it leaves'); A.choirOn(); },
+    update(dt) {
+      this.el += dt;
+      V.vol = INPUT.down ? Math.min(1, V.vol + dt / 4.5) : Math.max(0, V.vol - dt / 6.5);
+      const p = this.presses; let txt = '— / min';
+      if (p.length >= 4) {
+        const per = (p[p.length - 1] - p[p.length - 4]) / 3; this.bpm = 60 / per;
+        if (this.el - p[p.length - 1] > per * 1.6) this.bpm = Math.min(this.bpm, 60 / (this.el - p[p.length - 1]));
+        txt = this.bpm.toFixed(1) + ' / min';
+        if (this.slowest === null || this.bpm < this.slowest) this.slowest = this.bpm;
+        if (this.bpm <= 6.05) this.ok += dt; else this.ok = Math.max(0, this.ok - dt * 0.5);
+      }
+      cue('you lead', txt, this.ok > 0 ? 'slower than the tide… stay there' : 'slower than the tide is under six a minute');
+      if (this.ok >= 20 || this.el > 300) return 1;
+      return Math.min(0.99, Math.max(this.el / 300, this.ok / 20));
+    },
+    press() { this.presses.push(this.el); A.breath('in', 5, ROOT()); A.choirPhase('in', 5); },
+    release() { A.breath('out', 7, ROOT()); A.choirPhase('out', 7); },
+    exit() { A.choirOff(); },
+    result() { return { bpm: this.slowest }; },
+  };
+}
+
+function bellStage(onEnd) {
+  return {
+    el: 0, holding: false, done: false, nextBeat: 0, hold: 0,
+    enter() { V.bigBellT = 1; buttons(); hint('breathe in, then press and keep pressing while you hold · let go to ring it'); A.toll(1, 65.4); },
+    update(dt) {
+      this.el += dt;
+      if (this.holding) {
+        this.hold += dt; V.vol = 1;
+        if (this.hold >= this.nextBeat) { A.heart(0.38); V.hb = 1; this.nextBeat += 60 / (52 + 16 * Math.exp(-this.hold / 25)); }
+        cue('hold', fmt(this.hold), 'as long as it is easy');
+      } else if (!this.done) { V.vol = Math.max(0, V.vol - dt / 6); cue('the bell', '', ''); }
+      return this.done ? 1 : 0;
+    },
+    press() { if (this.done) return; this.holding = true; this.hold = 0; this.nextBeat = 0.4; A.breath('full', 2, ROOT()); },
+    release() {
+      if (!this.holding || this.done) return; this.holding = false;
+      if (this.hold < 3) { cue('the bell', '', 'hold a little longer than that'); return; }
+      this.done = true; V.bellFlash = 1; V.bellSwing = 1;
+      const t = A.t(); A.bell(65.41, 0.6, 14, t); A.bell(98, 0.3, 12, t + 0.05); A.bell(130.81, 0.2, 10, t + 0.1); A.breath('out', 8, ROOT());
+      onEnd(Math.round(this.hold));
+    },
+  };
+}
+
+function recoverStage() { return pacedStage({ pattern: [['in', 3], ['full', 2], ['out', 5]], cycles: 3, scored: false, label: 'recovery breaths', lead: 1.5 }); }
+
+/* =========================================================
+   CHAPTER FLOW
+   ========================================================= */
+let curN = 1;
+const CUR = () => CH[curN - 1];
+const ROOT = () => CUR().root;
+
+function buildStages(ch) {
+  const a = ch.act, R = ACT.results;
+  if (a.kind === 'paced') return [pacedStage({ pattern: a.pattern, cycles: a.cycles, fadeAfter: a.fadeAfter ?? null, sound: a.sound || 'sea' })];
+  if (a.kind === 'measure') return [
+    pacedStage({ pattern: [['in', 4], ['out', 8]], cycles: 6, scored: false, label: 'breathe-up', quiet: false }),
+    readyStage(),
+    holdStage({ onEnd: r => { R.hold = r; } }),
+    recoverStage()];
+  if (a.kind === 'table') {
+    const tb = a.type === 'co2' ? co2Table() : o2Table(); R.rounds = []; const st = [];
+    tb.forEach((r, i) => {
+      const label = `round ${i + 1} of ${tb.length}`;
+      st.push(restStage({ dur: r.rest, label, nextHold: r.hold }));
+      st.push(holdStage({ target: r.hold, label, onEnd: res => {
+        R.rounds.push(res);
+        if (a.type === 'o2' && !res.early) { const notes = [146.83, 220, 261.63, 329.63, 392, 440]; A.organNote(notes[i]); V.pipes.push({ h: (i + 1) / 6, a: 0, on: 1 }); }
+      } }));
+    });
+    st.push(recoverStage());
+    return st;
+  }
+  if (a.kind === 'free') return [followStage(), bellStage(h => { R.hold = h; })];
+}
+
+function startChapter(n) {
+  curN = n; const ch = CUR();
+  A.init(); A.setRoot(ch.root, ch.depth[0]);
+  ACT = { ch, i: -1, stage: null, results: {}, stages: null, prog: 0, endT: null };
+  ACT.stages = buildStages(ch);
+  setScene(ch, true);
+  $('#hud-l').textContent = ch.num + ' · ' + ch.title.toUpperCase();
+  show(null); playEl.classList.add('on'); cue('', '', ''); hint('');
+  wake(true);
+  nextStage();
+}
+function nextStage() {
+  if (ACT.stage && ACT.stage.exit) ACT.stage.exit();
+  if (ACT.stage && ACT.stage.result) Object.assign(ACT.results, ACT.stage.result());
+  ACT.i++;
+  if (ACT.i >= ACT.stages.length) { ACT.stage = null; ACT.endT = 0; cue('', '', ''); hint(''); buttons(); return; }
+  ACT.stage = ACT.stages[ACT.i]; ACT.stage.enter && ACT.stage.enter();
+}
+function tickAct(dt) {
+  if (!ACT) return;
+  if (ACT.endT !== null) { ACT.endT += dt / SPEED; if (ACT.endT > 2.2) finishChapter(); return; }
+  const st = ACT.stage; if (!st) return;
+  const p = st.update(dt);
+  const fin = st.finished ? st.finished() : p >= 1;
+  const frac = (ACT.i + clamp(p, 0, 1)) / ACT.stages.length;
+  ACT.prog = frac; $('#prog').style.width = (frac * 100).toFixed(2) + '%';
+  const ch = ACT.ch;
+  V.depthT = lerp(ch.depth[0], ch.depth[1], frac);
+  setDepthLabel();
+  if (fin) nextStage();
+}
+
+function finishChapter() {
+  const ch = ACT.ch, R = ACT.results; let box = '', outro = ch.outro(R);
+  playEl.classList.remove('on'); wake(false);
+  if (ch.act.kind === 'paced') {
+    const c = Math.round(R.concord * 100);
+    const word = c >= 90 ? 'you breathed like the tide itself' : c >= 75 ? 'close to the tide' : c >= 55 ? 'the current tugged at you now and then' : 'you and the sea disagreed. It is patient.';
+    box = `<div class="big">${c}%</div><div class="dim">concord · ${word}</div>` + (c < 60 ? `<div class="dim" style="margin-top:8px">tip: press as your in-breath begins, and let go the moment you start to breathe out.</div>` : '');
+    S.best[ch.n] = Math.max(S.best[ch.n] || 0, c);
+    addLog({ ch: ch.n, s: `concord ${c}%` });
+  } else if (ch.act.kind === 'measure') {
+    const h = R.hold || { held: 0, c: null }, was = S.pb, isPb = h.held > was;
+    if (isPb) { S.pb = h.held; S.pbDate = today(); }
+    box = `<div class="big">${fmt(h.held)}</div><div class="dim">relaxed hold${h.c !== null ? ` · first contraction ${fmt(h.c)}` : ''}</div><div class="dim">${isPb ? (was ? `new best · was ${fmt(was)}` : 'your baseline is set') : `best stays at ${fmt(was)}`}</div>`;
+    addLog({ ch: 4, s: `hold ${fmt(h.held)}` + (h.c !== null ? ` · c ${fmt(h.c)}` : '') + (isPb ? ' · best' : '') });
+    outro = ch.outro(h);
+  } else if (ch.act.kind === 'table') {
+    const rs = R.rounds || [], full = rs.filter(r => !r.early).length;
+    box = `<div class="big">${full} / ${rs.length}</div><div class="dim" style="margin-bottom:8px">holds kept to the end</div>` +
+      rs.map((r, i) => `<div class="row"><span>${i + 1}</span><span>${fmt(r.held)} / ${fmt(r.target)}</span><span class="dim">${r.c !== null ? 'c ' + fmt(r.c) : '—'}</span><span>${r.early ? 'early' : '✓'}</span></div>`).join('');
+    const cs = rs.filter(r => r.c !== null).map(r => r.c);
+    addLog({ ch: ch.n, s: `${ch.act.type.toUpperCase()} ${full}/${rs.length}` + (cs.length ? ` · first c ${fmt(Math.min(...cs))}` : ''), type: ch.act.type });
+    S.best[ch.n] = Math.max(S.best[ch.n] || 0, full);
+  } else if (ch.act.kind === 'free') {
+    S.done[7] = true; S.ended = true;
+    addLog({ ch: 7, s: (R.bpm ? `slowest ${R.bpm.toFixed(1)}/min · ` : '') + `bell hold ${fmt(R.hold || 0)}` });
+    save(); ACT = null; playEnding(); return;
+  }
+  S.done[ch.n] = true; save();
+  A.choirOff(); if (ch.n === 6) A.organSwell(0.09, 2);
+  $('#out-num').textContent = ch.num + ' · ' + ch.title.toUpperCase();
+  $('#out-res').innerHTML = box;
+  fillLines('#out-lines', outro, 900);
+  $('#b-cont').textContent = ch.n < 7 ? 'descend' : 'continue';
+  ACT = null;
+  show('s-outro');
+}
+
+function exitChapter() {
+  if (!ACT) return;
+  if (ACT.stage && ACT.stage.exit) ACT.stage.exit();
+  ACT = null; INPUT.down = false; playEl.classList.remove('on'); wake(false);
+  A.choirOff(); A.organOff(); A.breath('empty', 1, ROOT());
+  openMap();
+}
+
+/* ---------------- scene per chapter ---------------- */
+function setScene(ch, playing) {
+  V.colT = ch.color.slice();
+  document.documentElement.style.setProperty('--c', rgba(ch.color, 1));
+  document.documentElement.style.setProperty('--line', rgba(ch.color, 0.32));
+  V.archT = ch.n >= 2 ? (ch.n === 2 ? 0.5 : 1) : 0;
+  V.sleepersT = ch.n === 3 ? 1 : 0;
+  V.showClockT = ch.n === 5 ? 1 : 0;
+  V.belfryT = ch.n === 4 ? 1 : 0;
+  V.bigBellT = 0; V.ribT = 0; V.snowDir = -1; V.guideT = 1; V.ring = null;
+  if (playing && ch.n !== 6) V.pipes = [];
+  if (playing && ch.n === 6) { V.pipes = []; A.organOff(); }
+  V.depthT = ch.depth[0];
+  setDepthLabel();
+}
+function setDepthLabel() { setText('#depth', curN === 7 && (ACT || $('#ending').classList.contains('on')) ? 'depth · you' : Math.round(V.depthT) + ' m'); }
+
+/* =========================================================
+   SCREENS
+   ========================================================= */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+  V.dimT = id === null ? 0 : id === 'ending' ? 0.7 : 1; // let text breathe over the scene
+  setDepthLabel();
+}
+let lineTimers = [];
+function fillLines(sel, lines, gap) {
+  lineTimers.forEach(clearTimeout); lineTimers = [];
+  const box = $(sel); box.innerHTML = '';
+  lines.forEach((l, i) => {
+    const p = document.createElement('p');
+    if (typeof l === 'object') { p.textContent = l.i; p.className = 'instr'; } else p.textContent = l;
+    box.appendChild(p); lineTimers.push(setTimeout(() => p.classList.add('in'), 300 + i * gap));
+  });
+}
+
+function unlocked(n) { return n === 1 || !!S.done[n - 1]; }
+function openMap() {
+  curN = Math.min(7, Object.keys(S.done).length ? Math.max(...Object.keys(S.done).map(Number)) : 1);
+  $('#hud-l').textContent = 'UNDERTOW';
+  setScene({ n: 0, color: [143, 230, 220], depth: [0, 0] }, false);
+  V.archT = 0; V.pipes = []; A.organOff();
+  if (A.ctx) A.setRoot(55, 0);
+  const nights = new Set(S.log.map(l => l.d)).size;
+  $('#map-meta').textContent = `${Object.keys(S.done).length} of 7 chapters · ${nights} night${nights === 1 ? '' : 's'} under` + (S.pb ? ` · best hold ${fmt(S.pb)}` : '');
+  const list = $('#chlist'); list.innerHTML = '';
+  CH.forEach(ch => {
+    const b = document.createElement('button'); b.className = 'ch' + (S.done[ch.n] ? ' done' : ''); b.disabled = !unlocked(ch.n);
+    let res = '';
+    if (S.done[ch.n]) {
+      if (ch.act.kind === 'paced') res = `best concord ${S.best[ch.n]}%`;
+      else if (ch.act.kind === 'measure') res = `best ${fmt(S.pb)}`;
+      else if (ch.act.kind === 'table') res = `best ${S.best[ch.n]}/6 holds`;
+      else res = 'you reached the bell';
+    }
+    b.innerHTML = `<span class="m">${ch.n === 7 ? '—' : ch.depth[0] + ' m'}</span><span class="dot"></span><div class="t"><i>${ch.num}</i>${ch.title}</div><div class="g">${ch.tag}</div>${res ? `<div class="res">${res}</div>` : ''}`;
+    b.onclick = () => openIntro(ch.n);
+    list.appendChild(b);
+  });
+  // a suggestion for tonight, once the tables are known
+  const tn = $('#tonight');
+  if (S.done[6]) {
+    const lastT = S.log.find(l => l.type), stale = S.pbDate && (Date.now() - new Date(S.pbDate).getTime()) > 7 * 864e5;
+    const doneToday = S.log.some(l => l.type && l.d === today());
+    let s;
+    if (doneToday) s = 'You already did a table today. If you want to come down again, try the <b>Bay</b> or the <b>Choir</b>.';
+    else if (stale) s = 'Your baseline is more than a week old. Re-measure it in <b>The Belfry</b>, then rest.';
+    else s = lastT && lastT.type === 'co2' ? 'Last time was the crypt. Tonight, try <b>The Organ of Tides</b> (O₂).' : 'Tonight, try <b>The Crypt of Clocks</b> (CO₂).';
+    tn.innerHTML = '<span style="font-family:var(--sc);letter-spacing:.16em;font-size:13px;color:var(--c)">TONIGHT · </span>' + s; tn.hidden = false;
+  } else tn.hidden = true;
+  show('s-map');
+}
+
+function openIntro(n) {
+  curN = n; const ch = CUR();
+  if ((ch.act.kind === 'table') && !S.pb) { openIntro(4); return; }
+  setScene(ch, false);
+  if (A.ctx) A.setRoot(ch.root, ch.depth[0]);
+  $('#hud-l').textContent = ch.num + ' · ' + ch.title.toUpperCase();
+  $('#in-num').textContent = 'CHAPTER ' + ch.num;
+  $('#in-title').textContent = ch.title;
+  $('#in-prac').textContent = ch.prac;
+  $('#in-meta').textContent = ch.meta();
+  $('#in-det').open = !!S.done[n];
+  fillLines('#in-lines', ch.intro(), 1100);
+  show('s-intro');
+}
+
+function playEnding() {
+  playEl.classList.remove('on'); wake(false);
+  show('ending'); V.ribT = 1; V.bigBellT = 0.4; V.archT = 1;
+  fillLines('#end-lines', ENDING, 3600);
+  $('#end-btn').style.opacity = 0;
+  lineTimers.push(setTimeout(() => { V.snowDir = 1; }, 3600 * 5));
+  lineTimers.push(setTimeout(() => { $('#end-btn').style.opacity = 1; }, 3600 * ENDING.length + 800));
+  // surfacing: the depth slowly comes back to zero, the bells fade
+  const t0 = performance.now();
+  (function rise() {
+    const k = (performance.now() - t0) / (3600 * ENDING.length);
+    if (k < 1 && $('#ending').classList.contains('on')) { V.depthT = lerp(100, 0, ease(k)); setText('#depth', Math.round(V.depthT) + ' m'); requestAnimationFrame(rise); }
+  })();
+  setTimeout(() => { A.toll(3, 98); }, 2500);
+}
+
+function openLog() {
+  $('#log-pb').textContent = S.pb ? fmt(S.pb) : '—';
+  const nights = new Set(S.log.map(l => l.d)).size, tables = S.log.filter(l => l.type).length;
+  $('#log-stats').innerHTML = `<div><b>${nights}</b>nights under</div><div><b>${tables}</b>tables</div><div><b>${Object.keys(S.done).length}/7</b>chapters</div>` + (S.pbDate ? `<div><b>${S.pbDate}</b>best set</div>` : '');
+  $('#log-hist').innerHTML = S.log.length
+    ? '<table>' + S.log.slice(0, 40).map(l => `<tr><td>${l.d}</td><td>${CH[l.ch - 1].num} · ${CH[l.ch - 1].title}</td><td>${l.s}</td></tr>`).join('') + '</table>'
+    : '<p class="empty">Nothing yet. The wall is bare chalk.</p>';
+  $('#pb-msg').textContent = ''; $('#pb-in').value = S.pb ? fmt(S.pb) : '';
+  resetArmed = false; $('#b-reset').textContent = 'erase all progress';
+  show('s-log');
+}
+
+/* ---------------- misc ---------------- */
+let lock = null;
+async function wake(on) {
+  try { if (on && 'wakeLock' in navigator) lock = await navigator.wakeLock.request('screen'); else if (!on && lock) { await lock.release(); lock = null; } } catch (e) {}
+}
+function toggleSound() { A.setOn(!A.on); $('#b-snd').textContent = A.on ? 'sound on' : 'sound off'; }
+function askExit() { $('#m-exit').hidden = false; }
+
+$('#b-begin').onclick = () => { A.init(); S.ack ? openMap() : show('s-safety'); };
+$('#b-ack').onclick = () => { S.ack = true; save(); openMap(); };
+$('#b-title').onclick = () => show('s-title');
+$('#b-log').onclick = openLog;
+$('#b-logback').onclick = openMap;
+$('#b-go').onclick = () => startChapter(curN);
+$('#b-back').onclick = openMap;
+$('#b-cont').onclick = () => { A.organOff(); V.pipes = []; curN < 7 ? openIntro(curN + 1) : openMap(); };
+$('#b-surface').onclick = () => { lineTimers.forEach(clearTimeout); V.ribT = 0; V.snowDir = -1; openMap(); };
+$('#b-snd').onclick = toggleSound;
+$('#b-exit').onclick = askExit;
+$('#b-stay').onclick = () => { $('#m-exit').hidden = true; };
+$('#b-up').onclick = () => { $('#m-exit').hidden = true; exitChapter(); };
+$('#b-c').onclick = contraction;
+$('#b-air').onclick = () => { ACT && ACT.stage && ACT.stage.press && ACT.stage.press(); };
+$('#b-pbset').onclick = () => {
+  const v = $('#pb-in').value.trim(), m = v.match(/^(\d+)(?::(\d{1,2}))?$/);
+  if (!m) { $('#pb-msg').textContent = 'use m:ss or seconds'; return; }
+  const s = m[2] !== undefined ? +m[1] * 60 + +m[2] : +m[1];
+  if (s < 10 || s > 900) { $('#pb-msg').textContent = 'between 0:10 and 15:00'; return; }
+  S.pb = s; S.pbDate = today(); if (!S.done[4]) S.done[4] = true; save(); openLog(); $('#pb-msg').textContent = 'saved';
+};
+let resetArmed = false;
+$('#b-reset').onclick = () => {
+  if (!resetArmed) { resetArmed = true; $('#b-reset').textContent = 'tap again to erase'; return; }
+  S = JSON.parse(JSON.stringify(DEFAULT)); S.ack = true; save(); openLog();
+};
+
+/* ---------------- main loop ---------------- */
+let last = performance.now();
+function frame(now) {
+  const raw = Math.min(0.25, (now - last) / 1000); last = now;
+  if ($('#m-exit').hidden) tickAct(raw * SPEED);
+  draw(raw);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
